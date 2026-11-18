@@ -310,13 +310,32 @@ function viewState() {
   };
 }
 
+// 自己的角色不等插值延遲：直接用最新一筆伺服器狀態，位置再做短暫平滑避免 20 次/秒的跳格感
+const SELF_SMOOTH_MS = 30;
+let selfPos = null;
+function withSelfLatest(st, dt) {
+  if (!st || !snaps.length) return st;
+  const latest = snaps[snaps.length - 1].s.p.find((p) => p.id === myId);
+  if (!latest) { selfPos = null; return st; }
+  if (!selfPos || Math.hypot(selfPos.x - latest.x, selfPos.y - latest.y) > 150) { // 重生瞬移直接跳過去
+    selfPos = { x: latest.x, y: latest.y, z: latest.z };
+  } else {
+    const k = 1 - Math.exp(-dt * 1000 / SELF_SMOOTH_MS);
+    selfPos.x += (latest.x - selfPos.x) * k;
+    selfPos.y += (latest.y - selfPos.y) * k;
+    selfPos.z += (latest.z - selfPos.z) * k;
+  }
+  const me = { ...latest, ...selfPos };
+  return { ...st, p: st.p.some((p) => p.id === myId) ? st.p.map((p) => (p.id === myId ? me : p)) : [...st.p, me] };
+}
+
 /* ------------------------------------------------------------ 主迴圈 */
 
 // 每一幀：畫 3D 場景，大廳開著時也更新預覽
 function frame(now) {
   const dt = Math.min(0.05, (now - lastFrame) / 1000);
   lastFrame = now;
-  R.render(viewState(), myId, now, dt);
+  R.render(withSelfLatest(viewState(), dt), myId, now, dt);
   if (!$('lobby').classList.contains('hidden')) preview.update(setup, now, dt);
   requestAnimationFrame(frame);
 }

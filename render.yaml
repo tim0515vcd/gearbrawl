@@ -4,5 +4,6 @@ services:
     name: gearbrawl
     runtime: docker
     plan: free
+    region: singapore # 離台灣最近的 Render 機房，延遲約 40~60ms（預設 oregon 約 150ms）
     dockerfilePath: ./Dockerfile
     autoDeploy: true
