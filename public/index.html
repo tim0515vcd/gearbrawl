@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>配件大亂鬥 Gear Brawl</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&family=Russo+One&display=swap">
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    { "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+  </script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <canvas id="overlay"></canvas>
+
+  <!-- 遊戲中 HUD -->
+  <div id="hud" class="hidden">
+    <div id="timer">3:00</div>
+    <div id="board"></div>
+    <div id="feed"></div>
+    <div id="koMsg" class="hidden"></div>
+    <div id="me">
+      <div class="me-name" id="meName"></div>
+      <div class="bar"><div id="meHp"></div></div>
+      <div class="me-gear"><span id="meGear"></span><div class="cd"><div id="meCd"></div></div><span class="vkey">大絕</span></div>
+    </div>
+    <div id="tools">
+      <button id="addBot">＋電腦</button>
+      <button id="delBot">－電腦</button>
+      <button id="openMenu">換裝 (Esc)</button>
+    </div>
+    <div id="keys">←↑↓→ 移動　V 跳　X 輕攻擊　C 重攻擊　Z 瞄準　X+C 防禦　Z+X+C 大絕</div>
+  </div>
+
+  <!-- 大廳 / 換裝：左邊大型 3D 預覽，右邊 01→04 設定流程 -->
+  <div id="lobby" class="lobby">
+    <div class="lobby-bg" aria-hidden="true"><span class="bg-word">GEAR BRAWL</span></div>
+    <header class="lobby-top">
+      <div class="logo">
+        <span class="logo-zh">配件大亂鬥</span>
+        <span class="logo-en">GEAR BRAWL</span>
+      </div>
+      <div class="top-actions">
+        <button id="helpBtn" class="ghost-btn" type="button" aria-haspopup="dialog" aria-label="操作說明">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h2M10 10h2M14 10h2M18 10h0M7 14h10"/></svg>
+          <span class="lbl">操作說明</span>
+        </button>
+        <button id="backBtn" class="ghost-btn hidden" type="button">返回戰場 <kbd>Esc</kbd></button>
+      </div>
+    </header>
+
+    <main class="lobby-main">
+      <section class="stage" aria-label="角色預覽">
+        <canvas id="preview" aria-hidden="true"></canvas>
+        <div class="stage-info">
+          <div class="stage-en" id="stageEn">KNIGHT</div>
+          <div class="stage-char" id="stageChar">騎士</div>
+          <div class="stage-gear" id="stageGear"></div>
+        </div>
+      </section>
+
+      <section class="picker" aria-label="出戰設定">
+        <div class="block">
+          <h2 class="block-title"><span class="step">01</span>選擇角色</h2>
+          <div id="chars" class="char-grid" role="radiogroup" aria-label="角色"></div>
+        </div>
+
+        <div class="block">
+          <h2 class="block-title"><span class="step">02</span>選擇配件</h2>
+          <div id="gears" class="gear-grid" role="radiogroup" aria-label="配件"></div>
+          <div id="gearDetail" class="gear-detail" aria-live="polite"></div>
+        </div>
+
+        <div class="block row2">
+          <div>
+            <label class="block-title" for="name"><span class="step">03</span>名稱</label>
+            <input id="name" maxlength="12" placeholder="輸入你的名字" autocomplete="off">
+          </div>
+          <div>
+            <h2 class="block-title"><span class="step">04</span>代表色</h2>
+            <div id="colors" class="colors" role="radiogroup" aria-label="代表色"></div>
+          </div>
+        </div>
+
+        <div class="cta-row">
+          <button id="start" class="cta" type="button"><span>進入競技場</span><kbd>Enter</kbd></button>
+          <p id="status" class="status" role="status"></p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- 操作說明 -->
+  <dialog id="helpDlg" class="help-dlg" aria-labelledby="helpTitle">
+    <h2 id="helpTitle">操作說明</h2>
+    <dl class="keys-list">
+      <div><dt><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd></dt><dd>移動</dd></div>
+      <div><dt><kbd>V</kbd></dt><dd>跳躍（可以跳回平台邊緣救自己）</dd></div>
+      <div><dt><kbd>X</kbd></dt><dd>輕攻擊・連按連擊；靠近木箱撿起、再按丟出；空中按是下踢</dd></div>
+      <div><dt><kbd>C</kbd></dt><dd>重攻擊・出手慢，打中會擊倒（巨劍可按住蓄力）</dd></div>
+      <div><dt><kbd>Z</kbd></dt><dd>按住瞄準，鎖定最近的敵人</dd></div>
+      <div><dt><kbd>X</kbd>+<kbd>C</kbd></dt><dd>一起按住防禦，只擋正面</dd></div>
+      <div><dt><kbd>Z</kbd>+<kbd>X</kbd>+<kbd>C</kbd></dt><dd>大絕・每件配件不同，有冷卻時間</dd></div>
+      <div><dt><kbd>Esc</kbd></dt><dd>遊戲中開啟換裝選單</dd></div>
+    </dl>
+    <p class="tip">把對手打到 0 血或打出平台就算 KO。一局 3 分鐘，KO 最多的人獲勝。</p>
+    <form method="dialog"><button class="ghost-btn" type="submit">知道了</button></form>
+  </dialog>
+
+  <div id="result" class="overlay hidden"><div class="panel" id="resultPanel"></div></div>
+
+  <script type="module" src="client.js"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+# Render Blueprint：在 Render 選 New → Blueprint，指向這個 repo 就會照這裡建立服務
+services:
+  - type: web
+    name: gearbrawl
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true

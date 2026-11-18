@@ -1,0 +1,5 @@
+.git
+__pycache__
+*.pyc
+start.bat
+美術規格.md

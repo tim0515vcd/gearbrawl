@@ -1,0 +1,92 @@
+{
+  "characters": {
+    "knight":       { "name": "騎士",     "en": "KNIGHT",    "file": "models/kaykit/Knight.glb" },
+    "barbarian":    { "name": "野蠻人",   "en": "BARBARIAN", "file": "models/kaykit/Barbarian.glb" },
+    "mage":         { "name": "法師",     "en": "MAGE",      "file": "models/kaykit/Mage.glb" },
+    "ranger":       { "name": "遊俠",     "en": "RANGER",    "file": "models/kaykit/Ranger.glb" },
+    "rogue":        { "name": "盜賊",     "en": "ROGUE",     "file": "models/kaykit/Rogue.glb" },
+    "rogue_hooded": { "name": "兜帽盜賊", "en": "SHADOW",    "file": "models/kaykit/Rogue_Hooded.glb" },
+    "brawler":      { "name": "格鬥家",   "en": "BRAWLER",   "file": "models/hero.glb", "tint": ["torso", "pants", "leg", "headband", "ribbon"] }
+  },
+  "animations": [
+    "models/kaykit/Rig_Medium_General.glb",
+    "models/kaykit/Rig_Medium_MovementBasic.glb",
+    "models/kaykit/Rig_Medium_MovementAdvanced.glb",
+    "models/kaykit/Rig_Medium_CombatMelee.glb",
+    "models/kaykit/Rig_Medium_CombatRanged.glb"
+  ],
+  "handBones": { "R": "handslot.r", "L": "handslot.l" },
+  "gearRotation": [-90, 0, 0],
+  "gearModels": {
+    "flame":      { "file": "models/gear_flame.glb", "hands": "both", "size": 18, "boneSize": 16, "rotation": [90, 0, -90], "offset": [0, 0, 0], "metalness": 0.1 },
+    "staff":      { "file": "models/kaykit/weapons/staff.gltf" },
+    "blaster":    { "file": "models/kaykit/weapons/crossbow_1handed.gltf" },
+    "greatsword": { "file": "models/kaykit/weapons/sword_2handed.gltf" },
+    "axe":        { "file": "models/kaykit/weapons/axe_1handed.gltf" },
+    "dagger":     { "file": "models/kaykit/weapons/dagger.gltf" },
+    "wand":       { "file": "models/kaykit/weapons/wand.gltf" }
+  },
+  "clips": {
+    "idle": "Idle_A",
+    "flame.idle": "Melee_Unarmed_Idle",
+    "staff.idle": "Melee_2H_Idle",
+    "greatsword.idle": "Melee_2H_Idle",
+    "run": "Running_A",
+    "jump": "Jump_Idle",
+    "fall": "Jump_Idle",
+    "carry": "Idle_B",
+    "guard": "Melee_Blocking",
+    "hit": "Hit_A",
+    "stun": "Hit_B",
+    "down": "Death_A",
+    "shoot": "Throw",
+
+    "attack1": "Melee_Unarmed_Attack_Punch_A",
+    "attack2": "Melee_Unarmed_Attack_Punch_A",
+    "attack3": "Melee_Unarmed_Attack_Kick",
+    "heavy": "Melee_1H_Attack_Jump_Chop",
+    "airattack": "Melee_Unarmed_Attack_Kick",
+    "ultimate": "Melee_Unarmed_Attack_Punch_A",
+
+    "staff.attack1": "Melee_2H_Attack_Slice",
+    "staff.attack2": "Melee_2H_Attack_Slice",
+    "staff.attack3": "Melee_2H_Attack_Stab",
+    "staff.heavy": "Melee_2H_Attack_Chop",
+    "staff.airattack": "Melee_1H_Attack_Jump_Chop",
+    "staff.ultimate": "Melee_2H_Attack_Spinning",
+
+    "blaster.attack1": "Melee_1H_Attack_Chop",
+    "blaster.attack2": "Melee_1H_Attack_Slice_Diagonal",
+    "blaster.attack3": "Ranged_1H_Shoot",
+    "blaster.heavy": "Melee_1H_Attack_Slice_Horizontal",
+    "blaster.ultimate": "Ranged_1H_Shoot",
+
+    "greatsword.attack1": "Melee_2H_Attack_Slice",
+    "greatsword.attack2": "Melee_2H_Attack_Slice",
+    "greatsword.attack3": "Melee_2H_Attack_Chop",
+    "greatsword.heavy": "Melee_2H_Attack_Chop",
+    "greatsword.charge": "Melee_Block",
+    "greatsword.airattack": "Melee_1H_Attack_Jump_Chop",
+    "greatsword.ultimate": "Melee_1H_Attack_Jump_Chop",
+
+    "axe.attack1": "Melee_1H_Attack_Chop",
+    "axe.attack2": "Melee_1H_Attack_Slice_Diagonal",
+    "axe.attack3": "Melee_1H_Attack_Slice_Horizontal",
+    "axe.heavy": "Throw",
+    "axe.ultimate": "Throw",
+
+    "dagger.attack1": "Melee_1H_Attack_Stab",
+    "dagger.attack2": "Melee_1H_Attack_Slice_Diagonal",
+    "dagger.attack3": "Melee_1H_Attack_Stab",
+    "dagger.attack4": "Melee_1H_Attack_Slice_Diagonal",
+    "dagger.attack5": "Melee_Dualwield_Attack_Chop",
+    "dagger.heavy": "Melee_1H_Attack_Stab",
+    "dagger.ultimate": "Melee_Dualwield_Attack_Stab",
+
+    "wand.attack1": "Ranged_Magic_Shoot",
+    "wand.attack2": "Ranged_Magic_Shoot",
+    "wand.attack3": "Ranged_Magic_Spellcasting",
+    "wand.heavy": "Ranged_Magic_Shoot",
+    "wand.ultimate": "Ranged_Magic_Spellcasting"
+  }
+}
