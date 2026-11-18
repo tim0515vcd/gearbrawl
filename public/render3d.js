@@ -166,6 +166,17 @@ function resize() {
 
 /* ------------------------------------------------------------ 地圖 */
 
+// 該位置的地面高度：柱子頂上是柱子高度，其他地方是 0（跟伺服器 ground_z 一致）
+function groundZ(x, y) {
+  if (MAP) for (const r of MAP.pillars) if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return r.hgt || 0;
+  return 0;
+}
+
+// 角色是否在空中（站在柱子頂上不算）
+function airborne(p) {
+  return p.z - groundZ(p.x, p.y) > 1;
+}
+
 // 收到地圖資料後建立整個浮空競技場
 export function setMap(map) {
   if (MAP) return;
@@ -214,12 +225,13 @@ export function setMap(map) {
   const pillarSide = new THREE.MeshStandardMaterial({ color: '#8a93b8', roughness: 0.9 });
   const pillarTop = new THREE.MeshStandardMaterial({ color: '#b3bde0', roughness: 0.8 });
   for (const r of MAP.pillars) {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(r.w, 90, r.h), [pillarSide, pillarSide, pillarTop, pillarSide, pillarSide, pillarSide]);
-    m.position.set(r.x + r.w / 2, 45, r.y + r.h / 2);
+    const ph = r.hgt || 56; // 柱頂高度＝可以跳上去站的高度（跟伺服器一致）
+    const m = new THREE.Mesh(new THREE.BoxGeometry(r.w, ph - 4, r.h), [pillarSide, pillarSide, pillarTop, pillarSide, pillarSide, pillarSide]);
+    m.position.set(r.x + r.w / 2, (ph - 4) / 2, r.y + r.h / 2);
     m.castShadow = m.receiveShadow = true;
     scene.add(m);
     const cap = new THREE.Mesh(new THREE.BoxGeometry(r.w + 10, 8, r.h + 10), pillarTop);
-    cap.position.set(r.x + r.w / 2, 94, r.y + r.h / 2);
+    cap.position.set(r.x + r.w / 2, ph - 4, r.y + r.h / 2);
     cap.castShadow = cap.receiveShadow = true;
     scene.add(cap);
   }
@@ -440,7 +452,7 @@ const _d = new THREE.Vector3();
 function poseSegments(rig, p, now, sw) {
   const S = rig.segs;
   let la = -sw * 0.7, lb = sw * 0.7;
-  if (p.z > 1) { la = -0.6; lb = 0.3; }
+  if (airborne(p)) { la = -0.6; lb = 0.3; }
   if (p.s === 'airatk') { la = 0.2; lb = -1.3; }
   if (p.s === 'guard') { la = -0.2; lb = 0.25; }
   S.legL.rotation.set(la, 0, 0);
@@ -754,8 +766,8 @@ function posePrimitive(rig, p, now, prog, strike) {
   const sw = mv ? Math.sin(now / 85) : 0;
   b.position.y = mv ? Math.abs(sw) * 3 : Math.sin(now / 420) * 0.8;
   if (rig.footL) {
-    rig.footL.position.set(-6, p.z > 1 ? 7 : 3, 1 + sw * 6);
-    rig.footR.position.set(6, p.z > 1 ? 7 : 3, 1 - sw * 6);
+    rig.footL.position.set(-6, airborne(p) ? 7 : 3, 1 + sw * 6);
+    rig.footR.position.set(6, airborne(p) ? 7 : 3, 1 - sw * 6);
   }
   const hr = rig.handRest;
   rig.handL.position.set(hr.L.x, hr.L.y, hr.L.z - sw * 5);
@@ -814,7 +826,7 @@ function posePrimitive(rig, p, now, prog, strike) {
 function wantedSlots(p) {
   switch (p.s) {
     case 'idle':
-      if (p.z > 1) return ['jump', 'idle'];
+      if (airborne(p)) return ['jump', 'idle'];
       if (p.h) return p.mv ? ['carryrun', 'run', 'idle'] : ['carry', 'idle'];
       return p.mv ? ['run', 'idle'] : ['idle'];
     case 'attack': return [`attack${p.cb + 1}`, p.cb % 2 ? 'attack2' : 'attack1', 'attack1'];

@@ -4,7 +4,7 @@ import * as R from './render3d.js';
 const { GEAR_INFO } = R;
 const COLORS = ['#ff7a3d', '#ffd23d', '#4ade80', '#38bdf8', '#818cf8', '#f472b6', '#f87171', '#e5e7eb'];
 const KEYMAP = { ArrowUp: 'u', ArrowDown: 'd', ArrowLeft: 'l', ArrowRight: 'r', KeyZ: 'z', KeyX: 'x', KeyC: 'c', KeyV: 'v' };
-const INTERP_MS = 100;
+const INTERP_MS = 70; // 伺服器 30 次/秒廣播，保留約兩筆的緩衝
 
 const $ = (id) => document.getElementById(id);
 
@@ -280,7 +280,7 @@ function updateHud(s) {
 // 線性插值
 function lerp(a, b, t) { return a + (b - a) * t; }
 
-// 取出「100ms 前」的平滑畫面狀態，讓移動不會一頓一頓
+// 取出「INTERP_MS 前」的平滑畫面狀態，讓移動不會一頓一頓
 function viewState() {
   if (!snaps.length) return null;
   const rt = performance.now() - INTERP_MS;
@@ -310,22 +310,36 @@ function viewState() {
   };
 }
 
-// 自己的角色不等插值延遲：直接用最新一筆伺服器狀態，位置再做短暫平滑避免 20 次/秒的跳格感
-const SELF_SMOOTH_MS = 30;
+// 自己的角色不等插值延遲：用最新一筆伺服器狀態，再依前兩筆算出的速度往前推到「現在」，
+// 讓自己每一幀都在動（不會隨 30 次/秒的封包一格一格跳），最後做短暫平滑吸收預測誤差
+const SELF_SMOOTH_MS = 25;
+const SELF_MAX_AHEAD = 60; // 最多往前推幾毫秒，封包晚到時不要預測過頭
 let selfPos = null;
 function withSelfLatest(st, dt) {
   if (!st || !snaps.length) return st;
-  const latest = snaps[snaps.length - 1].s.p.find((p) => p.id === myId);
+  const L = snaps[snaps.length - 1];
+  const latest = L.s.p.find((p) => p.id === myId);
   if (!latest) { selfPos = null; return st; }
-  if (!selfPos || Math.hypot(selfPos.x - latest.x, selfPos.y - latest.y) > 150) { // 重生瞬移直接跳過去
-    selfPos = { x: latest.x, y: latest.y, z: latest.z };
+  const P = snaps.length > 1 ? snaps[snaps.length - 2] : null;
+  const prev = P && P.s.p.find((p) => p.id === myId);
+  const ahead = Math.min(SELF_MAX_AHEAD, performance.now() - L.at) / 1000;
+  let tx = latest.x, ty = latest.y, tz = latest.z;
+  if (prev && prev.s === latest.s && L.at > P.at && Math.hypot(prev.x - latest.x, prev.y - latest.y) < 150) {
+    const span = (L.at - P.at) / 1000;
+    tx += (latest.x - prev.x) / span * ahead;
+    ty += (latest.y - prev.y) / span * ahead;
+  }
+  if (!selfPos || Math.hypot(selfPos.x - tx, selfPos.y - ty) > 150) { // 重生瞬移直接跳過去
+    selfPos = { x: tx, y: ty, z: tz };
   } else {
     const k = 1 - Math.exp(-dt * 1000 / SELF_SMOOTH_MS);
-    selfPos.x += (latest.x - selfPos.x) * k;
-    selfPos.y += (latest.y - selfPos.y) * k;
-    selfPos.z += (latest.z - selfPos.z) * k;
+    selfPos.x += (tx - selfPos.x) * k;
+    selfPos.y += (ty - selfPos.y) * k;
+    selfPos.z += (tz - selfPos.z) * k;
   }
-  const me = { ...latest, ...selfPos };
+  // 動作進度也往前推，攻擊動畫才不會一格一格
+  const t = latest.du > 0 ? Math.min(latest.du, latest.t + ahead) : latest.t + ahead;
+  const me = { ...latest, ...selfPos, t };
   return { ...st, p: st.p.some((p) => p.id === myId) ? st.p.map((p) => (p.id === myId ? me : p)) : [...st.p, me] };
 }
 

@@ -24,7 +24,7 @@ PUBLIC = (Path(__file__).parent / "public").resolve()
 
 TICK = 60
 DT = 1 / TICK
-SEND_INTERVAL = 0.05  # 20 次/秒廣播
+SEND_INTERVAL = 1 / 30  # 30 次/秒廣播
 MATCH_SECONDS = 180
 RESULT_SECONDS = 8
 MAX_BOTS = 5
@@ -36,10 +36,10 @@ MAP = {
     "h": 900,
     "platform": {"x": 150, "y": 130, "w": 1100, "h": 640},
     "pillars": [
-        {"x": 400, "y": 290, "w": 90, "h": 70},
-        {"x": 910, "y": 290, "w": 90, "h": 70},
-        {"x": 400, "y": 540, "w": 90, "h": 70},
-        {"x": 910, "y": 540, "w": 90, "h": 70},
+        {"x": 400, "y": 290, "w": 90, "h": 70, "hgt": 56},
+        {"x": 910, "y": 290, "w": 90, "h": 70, "hgt": 56},
+        {"x": 400, "y": 540, "w": 90, "h": 70, "hgt": 56},
+        {"x": 910, "y": 540, "w": 90, "h": 70, "hgt": 56},
     ],
     "spawns": [
         [260, 240], [1140, 240], [260, 660], [1140, 660],
@@ -109,9 +109,24 @@ def on_platform(x, y):
     return p["x"] <= x <= p["x"] + p["w"] and p["y"] <= y <= p["y"] + p["h"]
 
 
-def hits_pillar(x, y, rad):
-    """判斷圓形是否與任一柱子重疊（給飛行物用）。"""
+def ground_z(x, y):
+    """回傳該位置的地面高度：站在柱子頂上就是柱子高度，其他地方是 0。"""
     for r in MAP["pillars"]:
+        if r["x"] <= x <= r["x"] + r["w"] and r["y"] <= y <= r["y"] + r["h"]:
+            return r["hgt"]
+    return 0.0
+
+
+def grounded(p):
+    """角色是否踩在地面或柱子頂上（不在空中）。"""
+    return p.z <= ground_z(p.x, p.y) + 0.01 and p.vz <= 0
+
+
+def hits_pillar(x, y, rad, z=0.0):
+    """判斷圓形是否與任一柱子重疊（給飛行物用）；高度超過柱頂就飛得過去。"""
+    for r in MAP["pillars"]:
+        if z >= r["hgt"]:
+            continue
         cx = clamp(x, r["x"], r["x"] + r["w"])
         cy = clamp(y, r["y"], r["y"] + r["h"])
         if (x - cx) ** 2 + (y - cy) ** 2 < rad * rad:
@@ -226,10 +241,12 @@ class Game:
 
     # ---------------------------------------------------- 移動與碰撞
     def move(self, p, dx, dy):
-        """移動角色並推出柱子與地圖邊界。"""
+        """移動角色並推出柱子與地圖邊界；高度已經在柱頂以上就不擋（可以跳上去站）。"""
         p.x = clamp(p.x + dx, 0, MAP["w"])
         p.y = clamp(p.y + dy, 0, MAP["h"])
         for r in MAP["pillars"]:
+            if p.z >= r["hgt"] - 2:
+                continue
             cx = clamp(p.x, r["x"], r["x"] + r["w"])
             cy = clamp(p.y, r["y"], r["y"] + r["h"])
             ex, ey = p.x - cx, p.y - cy
@@ -452,15 +469,16 @@ class Game:
 
         # 垂直方向（跳躍/擊飛）
         landed = False
-        if p.z > 0 or p.vz > 0:
+        gz = ground_z(p.x, p.y)
+        if p.z > gz or p.vz > 0:  # 在空中，或從柱子邊走下去
             p.vz -= GRAV * DT
             p.z += p.vz * DT
-            if p.z <= 0:
-                p.z, p.vz, landed = 0.0, 0.0, True
+            if p.z <= gz:
+                p.z, p.vz, landed = gz, 0.0, True
         # 擊退滑行
         if p.kvx or p.kvy:
             self.move(p, p.kvx * DT, p.kvy * DT)
-            f = math.exp(-(1.5 if p.z > 0 else 6.5) * DT)
+            f = math.exp(-(6.5 if grounded(p) else 1.5) * DT)
             p.kvx *= f
             p.kvy *= f
             if abs(p.kvx) + abs(p.kvy) < 8:
@@ -492,7 +510,7 @@ class Game:
                 p.chord_t = 0.0
                 if p.vcd <= 0 and p.holding is None:
                     self.start_special(p)
-            elif held("x") and held("c") and p.z == 0 and p.holding is None:
+            elif held("x") and held("c") and grounded(p) and p.holding is None:
                 p.pend_x = p.pend_c = False
                 p.chord_t = 0.0
                 self.set_state(p, "guard")
@@ -506,7 +524,7 @@ class Game:
                         self.light(p)
                     else:
                         self.heavy(p)
-            if p.state == "idle" and pr("v") and p.z == 0:
+            if p.state == "idle" and pr("v") and grounded(p):
                 p.vz = JUMP_V
                 self.event("jump", x=round(p.x), y=round(p.y))
             if p.state == "idle" and (mx or my):
@@ -587,11 +605,11 @@ class Game:
 
         elif st == "airatk":
             self.melee(p, 36, 0.0, 9, 400, 0, 0.4)
-            if landed or p.z <= 0:
+            if landed or grounded(p):
                 self.set_state(p, "recover", 0.22)
 
         elif st == "leap":  # 巨劍破山斬：落地時衝擊波
-            if landed or (p.z <= 0 and p.t > 0.1):
+            if landed or (grounded(p) and p.t > 0.1):
                 p.kvx = p.kvy = 0.0
                 self.melee(p, LEAP_RADIUS, -1.0, 18, 560, 260, 0.6, radial=True)
                 self.event("quake", x=round(p.x), y=round(p.y))
@@ -618,7 +636,7 @@ class Game:
                 self.set_state(p, "idle")
 
         elif st == "down":
-            if p.t >= p.dur and p.z <= 0:
+            if p.t >= p.dur and grounded(p):
                 if p.ko_pending:
                     self.do_ko(p)
                     return
@@ -626,7 +644,7 @@ class Game:
                 p.inv = 0.6
 
         # 落地時不在平台上 → 掉落
-        if p.z <= 0 and p.vz <= 0 and not on_platform(p.x, p.y) and p.alive:
+        if grounded(p) and not on_platform(p.x, p.y) and p.alive:
             self.drop_crate(p)
             self.set_state(p, "falling", 0.8)
             self.event("fall", x=round(p.x), y=round(p.y))
@@ -636,7 +654,7 @@ class Game:
         if p.holding is not None:
             self.throw_crate(p)
             self.set_state(p, "recover", 0.18)
-        elif p.z > 0:
+        elif not grounded(p):
             self.air_attack(p)
         else:
             c = self.near_crate(p)
@@ -652,7 +670,7 @@ class Game:
         if p.holding is not None:
             self.throw_crate(p)
             self.set_state(p, "recover", 0.18)
-        elif p.z > 0:
+        elif not grounded(p):
             self.air_attack(p)
         elif p.gear == "greatsword":  # 巨劍：先進入蓄力，放開 C 才出招
             self.set_state(p, "charge", CHARGE_MAX)
@@ -720,7 +738,7 @@ class Game:
                 c.x += c.vx * DT
                 c.y += c.vy * DT
                 c.z = max(0.0, c.z - 30 * DT)
-                if hits_pillar(c.x, c.y, 16) or not (0 <= c.x <= MAP["w"] and 0 <= c.y <= MAP["h"]):
+                if hits_pillar(c.x, c.y, 16, c.z) or not (0 <= c.x <= MAP["w"] and 0 <= c.y <= MAP["h"]):
                     self.break_crate(c)
                     continue
                 thrower = self.players.get(c.owner)
@@ -735,7 +753,7 @@ class Game:
                         break
                 if c.state == "fly" and c.t > 0.75:
                     if on_platform(c.x, c.y):
-                        c.state, c.z, c.owner = "ground", 0.0, None
+                        c.state, c.z, c.owner = "ground", ground_z(c.x, c.y), None
                     else:
                         c.state, c.t = "gone", 0.0
             elif c.state == "gone":
@@ -774,7 +792,7 @@ class Game:
                 continue
             b["x"] += b["vx"] * DT
             b["y"] += b["vy"] * DT
-            if b["t"] > b["life"] or hits_pillar(b["x"], b["y"], b["rad"]) or not (0 <= b["x"] <= MAP["w"] and 0 <= b["y"] <= MAP["h"]):
+            if b["t"] > b["life"] or hits_pillar(b["x"], b["y"], b["rad"], b["z"]) or not (0 <= b["x"] <= MAP["w"] and 0 <= b["y"] <= MAP["h"]):
                 if b["kind"] != "pellet":
                     self.event("pop", x=round(b["x"]), y=round(b["y"]), z=round(b["z"]), c=b["kind"])
                 continue
@@ -800,7 +818,7 @@ class Game:
         if not b["back"]:
             b["x"] += b["vx"] * DT
             b["y"] += b["vy"] * DT
-            if b["t"] >= b["out"] or hits_pillar(b["x"], b["y"], 12) or not (0 <= b["x"] <= MAP["w"] and 0 <= b["y"] <= MAP["h"]):
+            if b["t"] >= b["out"] or hits_pillar(b["x"], b["y"], 12, b["z"]) or not (0 <= b["x"] <= MAP["w"] and 0 <= b["y"] <= MAP["h"]):
                 b["back"] = True
         else:
             if not owner or not owner.alive:
@@ -1145,7 +1163,7 @@ async def handle_client(reader, writer):
 
 
 async def game_loop():
-    """固定 60 格/秒推進遊戲並每 50ms 廣播一次畫面。"""
+    """固定 60 格/秒推進遊戲並每 1/30 秒廣播一次畫面。"""
     nxt = time.perf_counter()
     last_send = 0.0
     while True:
